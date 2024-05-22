@@ -1,0 +1,6 @@
+{
+    "action": "download",
+    "fileSize": "100GiB",
+    "filesOnDisk": false,
+    "numFiles": 4
+}
