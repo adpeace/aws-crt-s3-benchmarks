@@ -6,7 +6,7 @@ from pathlib import Path
 import shlex
 
 from utils import S3_CLIENTS, run, workload_paths_from_args
-from utils.metrics import report_metrics
+#from utils.metrics import report_metrics
 
 parser = argparse.ArgumentParser(
     description='Benchmark workloads with a specific runner')
@@ -69,18 +69,18 @@ for workload in workloads:
 
     # reporting metrics before checking returncode
     # in case it did a few runs before failing
-    if args.report_metrics:
-        report_metrics(
-            run_stdout=result.stdout,
-            run_start_time=start_time,
-            run_end_time=end_time,
-            s3_client_id=args.s3_client,
-            workload_path=workload,
-            bucket=args.bucket,
-            region=args.region,
-            instance_type=args.metrics_instance_type,
-            branch=args.metrics_branch,
-        )
+    # if args.report_metrics:
+    #     report_metrics(
+    #         run_stdout=result.stdout,
+    #         run_start_time=start_time,
+    #         run_end_time=end_time,
+    #         s3_client_id=args.s3_client,
+    #         workload_path=workload,
+    #         bucket=args.bucket,
+    #         region=args.region,
+    #         instance_type=args.metrics_instance_type,
+    #         branch=args.metrics_branch,
+    #     )
 
     # if runner skipped the workload, keep going
     if result.returncode == 123:
@@ -89,6 +89,6 @@ for workload in workloads:
     # if runner failed and we're only running 1 workload, exit with failure
     # but if we're running multiple workloads, keep going
     if result.returncode != 0:
-        print('benchmark failed')
+        print(f"benchmark failed:{result}")
         if len(workloads) == 1:
             exit(1)
