@@ -52,8 +52,9 @@ trap cleanup SIGINT SIGTERM
 start_time=$(date +%s)
 
 # Loop over workloads and run each command in parallel
-#BIND_ADDR="172.31.83.94" LD_PRELOAD=/home/ec2-user/work/aws-crt-s3-benchmarks/bind.so $CMD_1 &
-BIND_ADDR="172.31.82.67" LD_PRELOAD=/home/ec2-user/work/aws-crt-s3-benchmarks/bind.so $CMD_2 &
+#BIND_ADDR="172.31.87.233" LD_PRELOAD=/home/ec2-user/work/aws-crt-s3-benchmarks/bind.so $CMD_1 &
+WAQAR_NETWORK_DEVICE_NAME="ens32" $CMD_1 &
+WAQAR_NETWORK_DEVICE_NAME="ens64" $CMD_2 &
 #BIND_ADDR="172.31.83.94" LD_PRELOAD=/home/ec2-user/work/aws-crt-s3-benchmarks/bind.so $CMD_3 &
 #BIND_ADDR="172.31.82.67" LD_PRELOAD=/home/ec2-user/work/aws-crt-s3-benchmarks/bind.so $CMD_4 &
 
