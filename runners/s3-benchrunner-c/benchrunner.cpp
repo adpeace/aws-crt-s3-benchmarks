@@ -12,6 +12,7 @@
 #include <aws/auth/credentials.h>
 #include <aws/common/string.h>
 #include <aws/common/system_resource_util.h>
+#include <aws/common/environment.h>
 #include <aws/http/connection.h>
 #include <aws/http/request_response.h>
 #include <aws/io/channel_bootstrap.h>
@@ -107,6 +108,7 @@ struct BenchmarkConfig
 {
     int maxRepeatCount;
     int maxRepeatSecs;
+    int numaNode;
     aws_s3_checksum_algorithm checksum;
     bool filesOnDisk;
     vector<TaskConfig> tasks;
@@ -207,7 +209,7 @@ BenchmarkConfig BenchmarkConfig::fromJson(const string &jsonFilepath)
 
     config.maxRepeatCount = json["maxRepeatCount"];
     config.maxRepeatSecs = json["maxRepeatSecs"];
-
+    config.numaNode = json["numaNode"];
     config.checksum = AWS_SCA_NONE;
     if (!json["checksum"].is_null())
     {
@@ -286,8 +288,22 @@ Benchmark::Benchmark(const BenchmarkConfig &config, string_view bucket, string_v
     logOpts.file = stderr;
     AWS_FATAL_ASSERT(aws_logger_init_standard(&logger, alloc, &logOpts) == 0);
     aws_logger_set(&logger);
+    // if(true || config.numaNode == -1){
+         eventLoopGroup = aws_event_loop_group_new_default(alloc, 0 /*max-threads*/, NULL /*shutdown-options*/);
+    // } else {
+      //  printf("pinning to the cpu group:%d", config.numaNode);
+    //}
+//        struct aws_string *env_name = aws_string_new_from_c_str(alloc, "WAQAR_NUMA_NODE");
+//        struct aws_string *env_value; 
+//        aws_get_environment_value(alloc, env_name, &env_value);  
+//        if(env_value != NULL && env_value->len > 0){
+//            eventLoopGroup = aws_event_loop_group_new_default_pinned_to_cpu_group(alloc, 0 /*max-threads*/, 1, NULL /*shutdown-options*/);
+//        }else {
+//            eventLoopGroup = aws_event_loop_group_new_default_pinned_to_cpu_group(alloc, 0 /*max-threads*/, 0, NULL /*shutdown-options*/);
+//        }
+//        aws_string_destroy(env_name);
+//        aws_string_destroy(env_value);
 
-    eventLoopGroup = aws_event_loop_group_new_default(alloc, 0 /*max-threads*/, NULL /*shutdown-options*/);
     AWS_FATAL_ASSERT(eventLoopGroup != NULL);
 
     aws_host_resolver_default_options resolverOpts;

@@ -5,6 +5,7 @@
     "checksum": null,
     "maxRepeatCount": 1,
     "maxRepeatSecs": 600,
+    "numaNode": 1,
     "tasks": [
         {
             "action": "download",

@@ -3,8 +3,9 @@
     "comment": "",
     "filesOnDisk": false,
     "checksum": null,
-    "maxRepeatCount": 1,
+    "maxRepeatCount": 10,
     "maxRepeatSecs": 600,
+    "numaNode": -1,
     "tasks": [
         {
             "action": "download",
