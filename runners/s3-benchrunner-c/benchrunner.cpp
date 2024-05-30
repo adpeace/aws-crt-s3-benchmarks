@@ -658,7 +658,7 @@ int main(int argc, char *argv[])
             double runSecs = runDurationSecs.count();
             durations.push_back(runSecs);
             fflush(stderr);
-            printf("Gb/s:%f,%d\n", runI + 1, runSecs, bytesToGigabit(bytesPerRun) / runSecs, max_connections);
+            printf("Gb/s:%f,%d\n", bytesToGigabit(bytesPerRun) / runSecs, max_connections);
             fflush(stdout);
 
             // break out if we've exceeded maxRepeatSecs
