@@ -52,10 +52,10 @@ trap cleanup SIGINT SIGTERM
 start_time=$(date +%s)
 
 # Loop over workloads and run each command in parallel
-WAQAR_NETWORK_DEVICE_NAME="1" WAQAR_NUMA_NODE="1" $CMD_1 &
-$CMD_2 &
-#WAQAR_NETWORK_DEVICE_NAME="ens96" $CMD_3 &
-#WAQAR_NETWORK_DEVICE_NAME="ens128" $CMD_4 &
+WAQAR_NETWORK_DEVICE_NAME="ens32" $CMD_1 &
+WAQAR_NETWORK_DEVICE_NAME="ens64" $CMD_2 &
+WAQAR_NETWORK_DEVICE_NAME="ens96" $CMD_3 &
+WAQAR_NETWORK_DEVICE_NAME="ens128" $CMD_4 &
 
 # $CMD_1 &
 # $CMD_2 &
