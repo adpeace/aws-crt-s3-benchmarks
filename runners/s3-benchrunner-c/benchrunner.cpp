@@ -182,7 +182,7 @@ class Benchmark
 
   public:
     // Instantiates S3 Client, does not run the benchmark yet
-    Benchmark(const BenchmarkConfig &config, string_view bucket, string_view region, double targetThroughputGbps);
+    Benchmark(const BenchmarkConfig &config, string_view bucket, string_view region, double targetThroughputGbps, int max_connections);
 
     ~Benchmark();
 
@@ -248,7 +248,7 @@ uint64_t BenchmarkConfig::bytesPerRun() const
 }
 
 // Instantiates S3 Client, does not run the benchmark yet
-Benchmark::Benchmark(const BenchmarkConfig &config, string_view bucket, string_view region, double targetThroughputGbps)
+Benchmark::Benchmark(const BenchmarkConfig &config, string_view bucket, string_view region, double targetThroughputGbps, int max_connections)
 {
     this->config = config;
     this->bucket = bucket;
@@ -346,6 +346,7 @@ Benchmark::Benchmark(const BenchmarkConfig &config, string_view bucket, string_v
     s3ClientConfig.signing_config = &signingConfig;
     s3ClientConfig.part_size = bytesFromMiB(8);
     s3ClientConfig.throughput_target_gbps = targetThroughputGbps;
+    s3ClientConfig.max_active_connections_override = max_connections;
 
     if (isS3Express)
     {
@@ -640,33 +641,33 @@ int main(int argc, char *argv[])
     string bucket = argv[3];
     string region = argv[4];
     double targetThroughputGbps = stod(argv[5]);
+    for(int max_connections = 200; max_connections<2500; max_connections+=50){
+        auto benchmark = Benchmark(config, bucket, region, targetThroughputGbps, max_connections);
+        uint64_t bytesPerRun = config.bytesPerRun();
 
-    auto benchmark = Benchmark(config, bucket, region, targetThroughputGbps);
-    uint64_t bytesPerRun = config.bytesPerRun();
+        // Repeat benchmark until we exceed maxRepeatCount or maxRepeatSecs
+        std::vector<double> durations;
+        auto appStart = high_resolution_clock::now();
+        for (int runI = 0; runI < config.maxRepeatCount; ++runI)
+        {
+            auto runStart = high_resolution_clock::now();
 
-    // Repeat benchmark until we exceed maxRepeatCount or maxRepeatSecs
-    std::vector<double> durations;
-    auto appStart = high_resolution_clock::now();
-    for (int runI = 0; runI < config.maxRepeatCount; ++runI)
-    {
-        auto runStart = high_resolution_clock::now();
+            benchmark.run();
 
-        benchmark.run();
+            duration<double> runDurationSecs = high_resolution_clock::now() - runStart;
+            double runSecs = runDurationSecs.count();
+            durations.push_back(runSecs);
+            fflush(stderr);
+            printf("Run:%d Secs:%f Gb/s:%f\n", runI + 1, runSecs, bytesToGigabit(bytesPerRun) / runSecs);
+            fflush(stdout);
 
-        duration<double> runDurationSecs = high_resolution_clock::now() - runStart;
-        double runSecs = runDurationSecs.count();
-        durations.push_back(runSecs);
-        fflush(stderr);
-        printf("Run:%d Secs:%f Gb/s:%f\n", runI + 1, runSecs, bytesToGigabit(bytesPerRun) / runSecs);
-        fflush(stdout);
-
-        // break out if we've exceeded maxRepeatSecs
-        duration<double> appDurationSecs = high_resolution_clock::now() - appStart;
-        if (appDurationSecs >= 1s * config.maxRepeatSecs)
-            break;
+            // break out if we've exceeded maxRepeatSecs
+            duration<double> appDurationSecs = high_resolution_clock::now() - appStart;
+            if (appDurationSecs >= 1s * config.maxRepeatSecs)
+                break;
+        }
     }
-
-    printStats(bytesPerRun, durations);
+    //printStats(bytesPerRun, durations);
 
     return 0;
 }
