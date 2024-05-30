@@ -284,7 +284,7 @@ Benchmark::Benchmark(const BenchmarkConfig &config, string_view bucket, string_v
 
     struct aws_logger_standard_options logOpts;
     AWS_ZERO_STRUCT(logOpts);
-    logOpts.level = AWS_LL_ERROR;
+    logOpts.level = AWS_LL_NONE;
     logOpts.file = stderr;
     AWS_FATAL_ASSERT(aws_logger_init_standard(&logger, alloc, &logOpts) == 0);
     aws_logger_set(&logger);
@@ -658,7 +658,7 @@ int main(int argc, char *argv[])
             double runSecs = runDurationSecs.count();
             durations.push_back(runSecs);
             fflush(stderr);
-            printf("Run:%d Secs:%f Gb/s:%f\n", runI + 1, runSecs, bytesToGigabit(bytesPerRun) / runSecs);
+            printf("Gb/s:%f,%d\n", runI + 1, runSecs, bytesToGigabit(bytesPerRun) / runSecs, max_connections);
             fflush(stdout);
 
             // break out if we've exceeded maxRepeatSecs
