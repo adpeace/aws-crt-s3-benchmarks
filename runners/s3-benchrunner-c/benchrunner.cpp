@@ -134,12 +134,18 @@ class Task
     future<void> doneFuture;
 
     FILE *downloadFile = NULL;
+    FILE* csv_file = NULL;
 
     static int onDownloadData(
         struct aws_s3_meta_request *meta_request,
         const struct aws_byte_cursor *body,
         uint64_t range_start,
         void *user_data);
+
+    static void onTelemetry(
+    struct aws_s3_meta_request *meta_request,
+    struct aws_s3_request_metrics *metrics,
+    void *user_data);
 
     static void onFinished(
         struct aws_s3_meta_request *meta_request,
@@ -251,7 +257,6 @@ Benchmark::Benchmark(const BenchmarkConfig &config, string_view bucket, string_v
     this->config = config;
     this->bucket = bucket;
     this->region = region;
-
     bool isS3Express = bucket.ends_with("--x-s3");
     if (isS3Express)
     {
@@ -375,6 +380,7 @@ Benchmark::Benchmark(const BenchmarkConfig &config, string_view bucket, string_v
             }
         }
     }
+
 }
 
 Benchmark::~Benchmark()
@@ -470,7 +476,11 @@ Task::Task(Benchmark &benchmark, size_t taskI)
     }
     else
         fail(string("Unknown task action: ") + config.action);
+    std::string file_path = "telemetry_" + std::to_string(taskI) + ".txt";
+    csv_file = fopen(file_path.c_str(), "w");
+    fprintf(this->csv_file, "sending_duration,receiving_duration,total_duration\n");
 
+    options.telemetry_callback = Task::onTelemetry;
     aws_s3_checksum_config checksumConfig;
     AWS_ZERO_STRUCT(checksumConfig);
     if (benchmark.config.checksum != AWS_SCA_NONE)
@@ -529,6 +539,61 @@ void Task::onFinished(
         fclose(task->downloadFile);
     aws_s3_meta_request_release(task->metaRequest);
     task->donePromise.set_value();
+    fclose(task->csv_file);
+}
+
+void Task::onTelemetry(
+    struct aws_s3_meta_request *meta_request,
+    struct aws_s3_request_metrics *metrics,
+    void *user_data)
+{
+        Task *task = static_cast<Task *>(user_data);
+
+    // Variables to hold the metric values
+    const aws_string *request_id = nullptr;
+    uint64_t start_time, end_time, total_duration;
+    uint64_t send_start_time, send_end_time, sending_duration;
+    uint64_t receive_start_time, receive_end_time, receiving_duration;
+    int response_status;
+    aws_http_headers *response_headers = nullptr;
+    const aws_string *request_path_query = nullptr;
+    const aws_string *host_address = nullptr;
+    const aws_string *ip_address = nullptr;
+    size_t connection_id;
+    aws_thread_id_t thread_id;
+    uint32_t stream_id;
+    const aws_string *operation_name = nullptr;
+    aws_s3_request_type request_type;
+
+    // Retrieve metrics
+    // aws_s3_request_metrics_get_request_id(metrics, &request_id);
+    //aws_s3_request_metrics_get_start_timestamp_ns(metrics, &start_time);
+    //aws_s3_request_metrics_get_end_timestamp_ns(metrics, &end_time);
+    aws_s3_request_metrics_get_total_duration_ns(metrics, &total_duration);
+    // aws_s3_request_metrics_get_send_start_timestamp_ns(metrics, &send_start_time);
+    // aws_s3_request_metrics_get_send_end_timestamp_ns(metrics, &send_end_time);
+     aws_s3_request_metrics_get_sending_duration_ns(metrics, &sending_duration);
+    // aws_s3_request_metrics_get_receive_start_timestamp_ns(metrics, &receive_start_time);
+    // aws_s3_request_metrics_get_receive_end_timestamp_ns(metrics, &receive_end_time);
+    aws_s3_request_metrics_get_receiving_duration_ns(metrics, &receiving_duration);
+    // aws_s3_request_metrics_get_response_status_code(metrics, &response_status);
+    // aws_s3_request_metrics_get_response_headers(metrics, &response_headers);
+    // aws_s3_request_metrics_get_request_path_query(metrics, &request_path_query);
+    // aws_s3_request_metrics_get_host_address(metrics, &host_address);
+    // aws_s3_request_metrics_get_ip_address(metrics, &ip_address);
+    // aws_s3_request_metrics_get_connection_id(metrics, &connection_id);
+    // aws_s3_request_metrics_get_thread_id(metrics, &thread_id);
+    // aws_s3_request_metrics_get_request_stream_id(metrics, &stream_id);
+    // aws_s3_request_metrics_get_operation_name(metrics, &operation_name);
+    // aws_s3_request_metrics_get_request_type(metrics, &request_type);
+    int error_code = aws_s3_request_metrics_get_error_code(metrics);
+    if(error_code!=0) {
+        return;
+    }
+     // Write the metrics data
+    fprintf(task->csv_file, "%lu,%lu,%lu\n",
+            sending_duration, receiving_duration, total_duration);
+
 }
 
 int Task::onDownloadData(
