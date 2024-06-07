@@ -478,7 +478,7 @@ Task::Task(Benchmark &benchmark, size_t taskI)
         fail(string("Unknown task action: ") + config.action);
     std::string file_path = "telemetry_" + std::to_string(taskI) + ".txt";
     csv_file = fopen(file_path.c_str(), "w");
-    fprintf(this->csv_file, "sending_duration,receiving_duration,total_duration\n");
+    fprintf(this->csv_file, "sending_duration,receiving_duration,time_to_first_byte, total_duration\n");
 
     options.telemetry_callback = Task::onTelemetry;
     aws_s3_checksum_config checksumConfig;
@@ -571,11 +571,14 @@ void Task::onTelemetry(
     //aws_s3_request_metrics_get_end_timestamp_ns(metrics, &end_time);
     aws_s3_request_metrics_get_total_duration_ns(metrics, &total_duration);
     // aws_s3_request_metrics_get_send_start_timestamp_ns(metrics, &send_start_time);
-    // aws_s3_request_metrics_get_send_end_timestamp_ns(metrics, &send_end_time);
-     aws_s3_request_metrics_get_sending_duration_ns(metrics, &sending_duration);
-    // aws_s3_request_metrics_get_receive_start_timestamp_ns(metrics, &receive_start_time);
+    if(aws_s3_request_metrics_get_send_end_timestamp_ns(metrics, &send_end_time)
+        || aws_s3_request_metrics_get_sending_duration_ns(metrics, &sending_duration)
+        || aws_s3_request_metrics_get_receive_start_timestamp_ns(metrics, &receive_start_time)
+        || aws_s3_request_metrics_get_receiving_duration_ns(metrics, &receiving_duration)) {
+            return;
+    }
     // aws_s3_request_metrics_get_receive_end_timestamp_ns(metrics, &receive_end_time);
-    aws_s3_request_metrics_get_receiving_duration_ns(metrics, &receiving_duration);
+    // ;
     // aws_s3_request_metrics_get_response_status_code(metrics, &response_status);
     // aws_s3_request_metrics_get_response_headers(metrics, &response_headers);
     // aws_s3_request_metrics_get_request_path_query(metrics, &request_path_query);
@@ -591,8 +594,8 @@ void Task::onTelemetry(
         return;
     }
      // Write the metrics data
-    fprintf(task->csv_file, "%lu,%lu,%lu\n",
-            sending_duration, receiving_duration, total_duration);
+    fprintf(task->csv_file, "%lu,%lu,%lu,%lu\n",
+            sending_duration, receiving_duration, receive_start_time-send_end_time, total_duration);
 
 }
 
