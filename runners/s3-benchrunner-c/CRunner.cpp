@@ -199,8 +199,19 @@ CRunner::CRunner(const BenchmarkConfig &config) : BenchmarkRunner(config)
     // httpMonitoringOpts.allowable_throughput_failure_interval_milliseconds = 750;
     // s3ClientConfig.monitoring_options = &httpMonitoringOpts;
 
+    /* hack for multiple network interfaces */
+    struct aws_byte_cursor *interface_names_array = (struct aws_byte_cursor *) aws_mem_calloc(alloc, 4, sizeof(struct aws_byte_cursor));
+    interface_names_array[0] = aws_byte_cursor_from_c_str("ens32");
+    interface_names_array[1] = aws_byte_cursor_from_c_str("ens64");
+    interface_names_array[2] = aws_byte_cursor_from_c_str("ens96");
+    interface_names_array[3] = aws_byte_cursor_from_c_str("ens128");
+
+    s3ClientConfig.network_interface_names_array = interface_names_array;
+    s3ClientConfig.num_network_interface_names = 4;
+
     s3Client = aws_s3_client_new(alloc, &s3ClientConfig);
     AWS_FATAL_ASSERT(s3Client != NULL);
+    aws_mem_release(alloc, interface_names_array);
 }
 
 CRunner::~CRunner()
@@ -313,21 +324,9 @@ Task::Task(CRunner &runner, size_t taskI)
         options.checksum_config = &checksumConfig;
     }
 
-    /* hack for multiple NICs */
-    struct aws_array_list interface_names_list;
-    aws_array_list_init_dynamic(&interface_names_list, benchmark.alloc, 3, sizeof(struct aws_byte_cursor));
-    struct aws_byte_cursor ens32 = aws_byte_cursor_from_c_str("ens32");
-    struct aws_byte_cursor ens64 = aws_byte_cursor_from_c_str("ens64");
-    //struct aws_byte_cursor ens96 = aws_byte_cursor_from_c_str("ens96");
-    aws_array_list_push_back(&interface_names_list, &ens32);
-    aws_array_list_push_back(&interface_names_list, &ens64);
-    //aws_array_list_push_back(&interface_names_list, &ens96);
-
-    options.network_interface_names_list = &interface_names_list;
     metaRequest = aws_s3_client_make_meta_request(runner.s3Client, &options);
     AWS_FATAL_ASSERT(metaRequest != NULL);
 
-    aws_array_list_clean_up(&interface_names_list);
     aws_http_message_release(request);
 }
 
