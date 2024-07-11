@@ -8,6 +8,7 @@
 #include <random>
 #include <thread>
 #include <vector>
+#include <chrono>
 
 #include <aws/auth/credentials.h>
 #include <aws/common/string.h>
@@ -636,14 +637,13 @@ int main(int argc, char *argv[])
     string region = argv[4];
     double targetThroughputGbps = stod(argv[5]);
 
-    auto benchmark = Benchmark(config, bucket, region, targetThroughputGbps);
-    uint64_t bytesPerRun = config.bytesPerRun();
-
     // Repeat benchmark until we exceed maxRepeatCount or maxRepeatSecs
     std::vector<double> durations;
     auto appStart = high_resolution_clock::now();
+    uint64_t bytesPerRun = config.bytesPerRun();
     for (int runI = 0; runI < config.maxRepeatCount; ++runI)
     {
+        auto benchmark = Benchmark(config, bucket, region, targetThroughputGbps);
         auto runStart = high_resolution_clock::now();
 
         benchmark.run();
@@ -655,13 +655,9 @@ int main(int argc, char *argv[])
         printf("Run:%d Secs:%f Gb/s:%f\n", runI + 1, runSecs, bytesToGigabit(bytesPerRun) / runSecs);
         fflush(stdout);
 
-        // break out if we've exceeded maxRepeatSecs
-        duration<double> appDurationSecs = high_resolution_clock::now() - appStart;
-        if (appDurationSecs >= 1s * config.maxRepeatSecs)
-            break;
+        std::this_thread::sleep_for(std::chrono::seconds(30));
     }
 
     printStats(bytesPerRun, durations);
-
     return 0;
 }
