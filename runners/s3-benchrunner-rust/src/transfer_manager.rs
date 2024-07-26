@@ -1,16 +1,17 @@
-use std::sync::Arc;
+use std::{sync::Arc};
 
 use anyhow::Context;
 use async_trait::async_trait;
 use aws_config::{self, BehaviorVersion, Region};
 use aws_s3_transfer_manager::{
-    download::Downloader,
-    types::{ConcurrencySetting, PartSize},
+    download::Downloader, io::InputStream, types::{ConcurrencySetting, PartSize}, upload::{UploadRequest, Uploader}
 };
 use aws_sdk_s3::operation::get_object::builders::GetObjectInputBuilder;
-use tokio::fs::File;
+use aws_sdk_s3::operation::put_object::builders::PutObjectInputBuilder;
+use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use tokio::task::JoinSet;
+use std::path::PathBuf;
 
 use crate::{
     BenchmarkConfig, Result, RunBenchmark, RunnerError, TaskAction, TaskConfig, PART_SIZE,
@@ -25,11 +26,12 @@ pub struct TransferManagerRunner {
 struct Handle {
     config: BenchmarkConfig,
     downloader: Downloader,
+    uploader: Uploader,
 }
 
 impl TransferManagerRunner {
     pub async fn new(config: BenchmarkConfig) -> TransferManagerRunner {
-        let sdk_config = aws_config::defaults(BehaviorVersion::latest())
+        let sdk_config: aws_config::SdkConfig = aws_config::defaults(BehaviorVersion::latest())
             .region(Region::new(config.region.clone()))
             .load()
             .await;
@@ -40,13 +42,19 @@ impl TransferManagerRunner {
         let concurrency_per_object = (total_concurrency / num_objects).max(1);
 
         let downloader = Downloader::builder()
-            .sdk_config(sdk_config)
+            .sdk_config(sdk_config.clone())
+            .part_size(PartSize::Target(PART_SIZE))
+            .concurrency(ConcurrencySetting::Explicit(concurrency_per_object))
+            .build();
+
+        let uploader = Uploader::builder()
+            .sdk_config(sdk_config.clone())
             .part_size(PartSize::Target(PART_SIZE))
             .concurrency(ConcurrencySetting::Explicit(concurrency_per_object))
             .build();
 
         TransferManagerRunner {
-            handle: Arc::new(Handle { config, downloader }),
+            handle: Arc::new(Handle { config, downloader, uploader}),
         }
     }
 
@@ -54,17 +62,15 @@ impl TransferManagerRunner {
         let task_config = &self.config().workload.tasks[task_i];
 
         if self.config().workload.checksum.is_some() {
-            return Err(RunnerError::SkipBenchmark(format!(
-                "checksums not yet implemented"
-            )));
+            return Err(RunnerError::SkipBenchmark(
+                "checksums not yet implemented".to_string()
+            ));
         }
 
         match task_config.action {
             TaskAction::Download => self.download(task_config).await,
-            TaskAction::Upload => Err(RunnerError::SkipBenchmark(format!(
-                "upload not yet implemented"
-            ))),
-        }
+            TaskAction::Upload => self.upload(task_config).await,
+        }.map_err(|err| RunnerError::Fail(err.into()))
     }
 
     async fn download(&self, task_config: &TaskConfig) -> Result<()> {
@@ -83,7 +89,7 @@ impl TransferManagerRunner {
 
         // if files_on_disk: open file for writing
         let mut dest_file = if self.config().workload.files_on_disk {
-            let file = File::create(key)
+            let file = fs::File::create(key)
                 .await
                 .with_context(|| format!("failed creating file: {key}"))?;
             Some(file)
@@ -110,6 +116,35 @@ impl TransferManagerRunner {
         }
 
         assert_eq!(total_size, task_config.size);
+
+        Ok(())
+    }
+    async fn upload(&self, task_config: &TaskConfig) -> Result<()> {
+        let key = &task_config.key;
+        // TODO: Why not use PutObjectInputBuilder vs UploadRequestBuilder
+        //TODO: Error handling? How to just convert the ? to proper error?
+        //
+//        let mut input = PutObjectInputBuilder::default()
+//            .bucket(&self.config().bucket)
+//            .key(key)
+//            .build()
+//            .map_err(|err| err.into())?;
+//        let mut upload_handle = self.handle.uploader.upload(input.into()).await.with_context(|| format!("Failed starting upload: {key}"))?;
+//
+         
+        let uploader = self.handle.uploader.clone();
+        let path: PathBuf = key.into();
+        let stream = InputStream::from_path(path).map_err(|err| RunnerError::Fail(err.into()))?;
+
+        let request = UploadRequest::builder()
+            .bucket(&self.config().bucket)
+            .key(key)
+            .body(stream)
+            .build()
+            .with_context(|| format!("failed to create the request: {key}"))?;
+
+        let handle = uploader.upload(request).await.with_context(|| format!("test"))?;
+        let _resp = handle.join().await.with_context(|| format!("test"))?;
 
         Ok(())
     }
@@ -147,3 +182,4 @@ fn calculate_concurrency(target_throughput_gigabits_per_sec: f64) -> usize {
     let concurrency = target_throughput_gigabits_per_sec * 2.5;
     (concurrency as usize).max(10)
 }
+
