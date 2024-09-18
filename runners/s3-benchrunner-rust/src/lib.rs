@@ -3,6 +3,9 @@ use async_trait::async_trait;
 use serde::Deserialize;
 use std::{fs::File, io::BufReader, path::Path};
 
+mod telemetry;
+pub use telemetry::Telemetry;
+
 mod transfer_manager;
 pub use transfer_manager::TransferManagerRunner;
 

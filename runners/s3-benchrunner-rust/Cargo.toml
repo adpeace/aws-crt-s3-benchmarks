@@ -17,3 +17,10 @@ thiserror = "1.0.62"
 tokio = { version = "1.38.1", features = ["io-util"] }
 bytes = "1"
 fastrand = "=2.1.0"
+opentelemetry = { version = "0.25.0", features = ["metrics", "logs"] }
+opentelemetry_sdk = { version = "0.25.0", features = ["rt-tokio", "logs"] }
+opentelemetry-otlp = { version = "0.25.0", features = ["tonic", "metrics", "logs"] }
+opentelemetry-semantic-conventions = "0.25.0"
+opentelemetry-appender-tracing = "0.25.0"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter", "registry", "std"] }
+tracing = "0.1.40"

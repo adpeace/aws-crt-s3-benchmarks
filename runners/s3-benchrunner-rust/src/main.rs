@@ -4,7 +4,7 @@ use std::time::Instant;
 
 use s3_benchrunner_rust::{
     bytes_to_gigabits, prepare_run, BenchmarkConfig, Result, RunBenchmark, SkipBenchmarkError,
-    TransferManagerRunner,
+    Telemetry, TransferManagerRunner,
 };
 
 #[derive(Parser)]
@@ -20,6 +20,8 @@ struct Args {
     region: String,
     #[arg(help = "Target throughput, in gigabits per second (e.g. \"100.0\" for c5n.18xlarge)")]
     target_throughput: f64,
+    #[arg(long, help = "Export OpenTelemetry on http://localhost:4317 via gRPC")]
+    telemetry: bool,
 }
 
 #[derive(ValueEnum, Clone)]
@@ -54,6 +56,12 @@ fn main() {
 }
 
 async fn async_main(args: &Args) -> Result<()> {
+    let _telemetry: Option<Telemetry> = if args.telemetry {
+        Some(Telemetry::new()?)
+    } else {
+        None
+    };
+
     let config = BenchmarkConfig::new(
         &args.workload,
         &args.bucket,
