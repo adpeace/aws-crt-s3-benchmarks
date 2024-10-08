@@ -5,6 +5,8 @@
     "checksum": null,
     "maxRepeatCount": 5,
     "maxRepeatSecs": 6000000,
+    "nics": ["ens32", "ens96"],
+    "memoryLimitOverrideMib": 65535,
     "tasks": [
         {
             "action": "download",

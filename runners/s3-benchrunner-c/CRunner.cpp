@@ -176,6 +176,9 @@ CRunner::CRunner(const BenchmarkConfig &config) : BenchmarkRunner(config)
     s3ClientConfig.part_size = PART_SIZE;
     s3ClientConfig.throughput_target_gbps = config.targetThroughputGbps;
 
+    // May be 0, which will have no effect (and is the default):
+    s3ClientConfig.memory_limit_in_bytes = config.memoryLimitOverrideMiB * 1024 * 1024;
+
     if (isS3Express)
     {
         signingConfig.algorithm = AWS_SIGNING_ALGORITHM_V4_S3EXPRESS;
@@ -199,19 +202,20 @@ CRunner::CRunner(const BenchmarkConfig &config) : BenchmarkRunner(config)
     // httpMonitoringOpts.allowable_throughput_failure_interval_milliseconds = 750;
     // s3ClientConfig.monitoring_options = &httpMonitoringOpts;
 
-    /* hack for multiple network interfaces */
-    struct aws_byte_cursor *interface_names_array = (struct aws_byte_cursor *) aws_mem_calloc(alloc, 4, sizeof(struct aws_byte_cursor));
-    interface_names_array[0] = aws_byte_cursor_from_c_str("ens32");
-    interface_names_array[1] = aws_byte_cursor_from_c_str("ens64");
-    interface_names_array[2] = aws_byte_cursor_from_c_str("ens96");
-    interface_names_array[3] = aws_byte_cursor_from_c_str("ens128");
-
-    s3ClientConfig.network_interface_names_array = interface_names_array;
-    s3ClientConfig.num_network_interface_names = 4;
+    // If NIC bindings were given, set them up:
+    struct aws_byte_cursor *interface_names_array = NULL;
+    if (!config.nics.empty()) {
+        struct aws_byte_cursor *interface_names_array = (struct aws_byte_cursor *) aws_mem_calloc(alloc, config.nics.size(), sizeof(struct aws_byte_cursor));
+        for (size_t i = 0; i < config.nics.size(); ++i)
+            interface_names_array[i] = aws_byte_cursor_from_c_str(config.nics[i].c_str());
+        s3ClientConfig.network_interface_names_array = interface_names_array;
+        s3ClientConfig.num_network_interface_names = config.nics.size();
+    }
 
     s3Client = aws_s3_client_new(alloc, &s3ClientConfig);
     AWS_FATAL_ASSERT(s3Client != NULL);
-    aws_mem_release(alloc, interface_names_array);
+    if (interface_names_array)
+        aws_mem_release(alloc, interface_names_array);
 }
 
 CRunner::~CRunner()

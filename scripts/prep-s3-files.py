@@ -350,12 +350,16 @@ def prep_file_in_s3(task: Task, s3, bucket: str, existing_s3_objects: dict[str, 
             percent = int(ratio * 100)
             _print_status(f'{percent}% uploaded...')
 
+    from boto3.s3.transfer import TransferConfig
+    config = TransferConfig(preferred_transfer_client='classic')
+
+    print(extra_args)
     s3.upload_fileobj(
         file_stream,
         bucket,
         task.key,
         extra_args,
-        _progress_callback,
+        _progress_callback, Config=config
     )
 
 

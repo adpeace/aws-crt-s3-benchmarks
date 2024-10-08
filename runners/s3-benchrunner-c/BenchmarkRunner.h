@@ -35,6 +35,8 @@ struct BenchmarkConfig
     std::string checksum;
     bool filesOnDisk;
     std::vector<TaskConfig> tasks;
+    long memoryLimitOverrideMiB;
+    std::vector<std::string> nics; // if none, then no binding config is provided.
 
     // passed on cmdline...
     std::string bucket;

@@ -100,6 +100,11 @@ BenchmarkConfig::BenchmarkConfig(
     if (!json["checksum"].is_null())
         this->checksum = json["checksum"];
 
+    if (!json["memoryLimitOverrideMib"].is_null())
+        this->memoryLimitOverrideMiB = json["memoryLimitOverrideMib"];
+    else
+        this->memoryLimitOverrideMiB = 0;
+
     this->filesOnDisk = json["filesOnDisk"];
 
     for (auto &&taskJson : json["tasks"])
@@ -108,6 +113,10 @@ BenchmarkConfig::BenchmarkConfig(
         task.action = taskJson["action"];
         task.key = taskJson["key"];
         task.size = taskJson["size"];
+    }
+
+    if (!json["nics"].is_null()) {
+        this->nics.insert(this->nics.end(), json["nics"].begin(), json["nics"].end());
     }
 }
 

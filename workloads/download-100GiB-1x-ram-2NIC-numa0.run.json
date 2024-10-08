@@ -5,6 +5,7 @@
     "checksum": null,
     "maxRepeatCount": 5,
     "maxRepeatSecs": 6000000,
+    "nics": ["ens32", "ens64"],
     "tasks": [
         {
             "action": "download",
